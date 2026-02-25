@@ -1,0 +1,76 @@
+// Prisma schema for Learning App — Azure SQL Database
+// Provider: sqlserver (Azure SQL / SQL Server)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Household {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.NVarChar(100)
+  joinCode  String   @unique @db.NVarChar(10)
+  createdAt DateTime @default(now())
+
+  users            User[]
+  lessons          Lesson[]
+  completedLessons CompletedLesson[]
+
+  @@map("Households")
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  householdId Int
+  name        String   @db.NVarChar(50)
+  avatarUrl   String?  @db.NVarChar(255)
+  pin         String   @db.NVarChar(255) // bcrypt hash
+  role        String   @db.NVarChar(10) // 'parent' or 'kid'
+  totalPoints Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  household        Household         @relation(fields: [householdId], references: [id])
+  completedLessons CompletedLesson[] @relation("CompletedByUser")
+  approvedLessons  CompletedLesson[] @relation("ApprovedByUser")
+
+  @@map("Users")
+}
+
+model Lesson {
+  id          Int      @id @default(autoincrement())
+  householdId Int
+  title       String   @db.NVarChar(100)
+  description String?  @db.NVarChar(255)
+  topic       String   @db.NVarChar(50)
+  points      Int
+  icon        String?  @db.NVarChar(50)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  household        Household         @relation(fields: [householdId], references: [id])
+  completedLessons CompletedLesson[]
+
+  @@map("Lessons")
+}
+
+model CompletedLesson {
+  id               Int       @id @default(autoincrement())
+  lessonId         Int
+  userId           Int
+  householdId      Int
+  completedAt      DateTime  @default(now())
+  approvedByUserId Int?
+  status           String    @default("pending") @db.NVarChar(20) // 'pending','approved','rejected'
+  pointsAwarded    Int
+
+  lesson     Lesson    @relation(fields: [lessonId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user       User      @relation("CompletedByUser", fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  household  Household @relation(fields: [householdId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedBy User?     @relation("ApprovedByUser", fields: [approvedByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("CompletedLessons")
+}
